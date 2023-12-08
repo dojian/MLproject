@@ -12,9 +12,8 @@ import numpy as np
 import keras
 import pytesseract
 from pytesseract import Output
-from PIL import Image, ImageDraw
-from util.edge_detection import canny_edge_detector
-import cv2
+import matplotlib.pyplot as plt
+from util.detect_scatter_points_v2 import detect_scatter_points
 
 def determine_scale(img, vals, height, left):
     num_ind = [i for i in range(len(vals)) if vals[i].isnumeric()]
@@ -73,40 +72,18 @@ for i in range(len(Y_plot_type)):
         test_images[i].store_pred_plot_bb(plot_bb_preds[i])
         scatter_images.append(test_images[i])
         
-for index, image_array in enumerate(scatter_images[0:1]):  # Only process the first image for now
-    # Convert the numpy array to a PIL Image for processing with the edge detector
-    image = Image.fromarray(image_array.image[
-        int(image_array.pred_plot_bb[1]):int(image_array.pred_plot_bb[3]), 
-        int(image_array.pred_plot_bb[0]):int(image_array.pred_plot_bb[2])
-        ])
-    edges = canny_edge_detector(image)
+scatter_points = []
 
-    # Convert the edge points back to an image where edges are white and the background is black
-    edge_image = Image.new("L", image.size, 0)
-    draw = ImageDraw.Draw(edge_image)
-    for x, y in edges:
-        draw.point((x, y), 255)
-
-    # Convert the edge image to a format compatible with OpenCV
-    edge_image_np = np.array(edge_image)
-
-    # Find contours of the scatter plot points
-    contours, _ = cv2.findContours(edge_image_np, cv2.RETR_TREE, 
-                                   cv2.CHAIN_APPROX_SIMPLE)
-
-    # Calculate the centroids of the contours
-    points = []
-    for cnt in contours:
-        M = cv2.moments(cnt)
-        if M["m00"] != 0:
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
-            if (cX, cY) not in points:
-                points.append((cX, cY))
-                
-    points = [(p[0] + image_array.pred_plot_bb[0], 
-               p[1] + image_array.pred_plot_bb[1]) for p in points]
-
+for img in scatter_images:
+    points = detect_scatter_points(img)
+    scatter_points.append(points)
+    fig2, ax2 = plt.subplots()
+    ax2.imshow(img.image)
+    fig, ax = plt.subplots()
+    ax.imshow(img.image)
+    for point in points:
+        ax.scatter(point[0], point[1], color='red')
+    
 
 x_axis_images = [img.image[int(img.pred_plot_bb[1] + img.pred_plot_bb[3]):, :] 
                  for img in scatter_images]
