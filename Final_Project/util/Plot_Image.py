@@ -12,13 +12,14 @@ import numpy as np
 class Plot_Image():
     
     def __init__(self, image, image_name, image_size, plot_type, plot_bb, 
-                 plot_data_series):
+                 plot_data_series, scatter_points):
         self.image = image
         self.image_name = image_name
         self.image_size = image_size
         self.plot_type = plot_type
         self.plot_bb = plot_bb
         self.plot_data_series = plot_data_series
+        self.scatter_points = scatter_points
         
         
     def resize_image(self, width, height):

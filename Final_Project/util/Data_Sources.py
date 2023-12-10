@@ -21,4 +21,4 @@ train_images = Data_Loader(train_data_file_path,
 min_width, min_height = get_smallest_image_dimensions(train_images)
 
 test_images = Data_Loader(test_data_file_path, 
-                     test_label_file_path, 8).load_image_data()
+                     test_label_file_path, 2000).load_image_data()

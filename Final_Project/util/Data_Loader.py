@@ -41,7 +41,8 @@ class Data_Loader():
                                         (img.shape[0], img.shape[1]), 
                                         img_annotations['chart-type'], 
                                         img_annotations['plot-bb'], 
-                                        img_annotations['data-series']))
+                                        img_annotations['data-series'],
+                                        img_annotations['visual-elements']['scatter points']))
                 
                 if len(X) >= self.n_images :
                     

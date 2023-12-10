@@ -13,19 +13,10 @@ import keras
 import pytesseract
 from pytesseract import Output
 import matplotlib.pyplot as plt
-from util.detect_scatter_points_v2 import detect_scatter_points
+from util.detect_scatter_points import detect_scatter_points
+from util.determine_scale import determine_x_scale, determine_y_scale, scale_scatter_points
+from util.compute_scatter_id_accuracy import compute_scatter_id_accuracy, compute_scatter_mean_percent_error
 
-def determine_scale(img, vals, height, left):
-    num_ind = [i for i in range(len(vals)) if vals[i].isnumeric()]
-    axis_labels = [vals[i] for i in range(len(vals)) if i in num_ind]
-    heights = [height[i] for i in range(len(height)) if i in num_ind]
-    lefts = [left[i] for i in range(len(left)) if i in num_ind]
-    
-    difs = []
-    for i in range(len(axis_labels) - 1):
-        dif_1 = float(axis_labels[i+1]) - float(axis_labels[i])
-        dif_2 = lefts[i+1] - lefts[i]
-        difs.append((dif_1, dif_2))
 
 img_resized = [img.resize_image(145, 318) for img in test_images]
 img_gray = [convert_to_grayscale(img) for img in img_resized]
@@ -77,14 +68,25 @@ scatter_points = []
 for img in scatter_images:
     points = detect_scatter_points(img)
     scatter_points.append(points)
-    fig2, ax2 = plt.subplots()
-    ax2.imshow(img.image)
-    fig, ax = plt.subplots()
-    ax.imshow(img.image)
-    for point in points:
-        ax.scatter(point[0], point[1], color='red')
+    # fig2, ax2 = plt.subplots()
+    # ax2.imshow(img.image)
+    # fig, ax = plt.subplots()
+    # ax.imshow(img.image)
+    # for point in points:
+    #     ax.scatter(point[0], point[1], color='red')
     
-
+good_preds = 0
+total_preds = 0
+count = 0
+for img in scatter_images:
+    good, total = compute_scatter_id_accuracy(scatter_points[count],
+                                              scatter_images[count].scatter_points)
+    good_preds += good
+    total_preds += total
+    count += 1
+    
+print('Scatter Plot Point ID Accuracy:', (good_preds/total_preds) * 100)
+    
 x_axis_images = [img.image[int(img.pred_plot_bb[1] + img.pred_plot_bb[3]):, :] 
                  for img in scatter_images]
 
@@ -93,8 +95,47 @@ x_axis_values = [pytesseract.image_to_data(img,
                  output_type=Output.DICT, config=custom_config) for img in
                  x_axis_images]
 
-determine_scale(x_axis_images[0], x_axis_values[0]['text'], 
-                x_axis_values[0]['height'], x_axis_values[0]['left'])
+x_axis_scale = []
+for x in x_axis_values:
+    ref, ref_loc, scale = determine_x_scale(x['text'], x['left'], x['width'])
+    x_axis_scale.append((ref, ref_loc, scale))
+
 
 y_axis_images = [img.image[:, :int(img.pred_plot_bb[0])] 
                  for img in scatter_images]
+
+custom_config = r'--oem 3 --psm 6'
+y_axis_values = [pytesseract.image_to_data(img, 
+                 output_type=Output.DICT, config=custom_config) for img in
+                 y_axis_images]
+
+y_axis_scale = []
+for y in y_axis_values:
+    ref, ref_loc, scale = determine_y_scale(y['text'], y['top'], y['height'])
+    y_axis_scale.append((ref, ref_loc, scale))
+    
+image_scale_id_count = 0
+scatter_points_with_scale = []
+x_axis_scale_final = []
+y_axis_scale_final = []
+scatter_images_final = []
+for i in range(len(x_axis_scale)):
+    if x_axis_scale[i][0] != None and y_axis_scale[i][0] != None:
+        image_scale_id_count += 1
+        scatter_points_with_scale.append(scatter_points[i])
+        x_axis_scale_final.append(x_axis_scale[i])
+        y_axis_scale_final.append(y_axis_scale[i])
+        scatter_images_final.append(scatter_images[i])
+ 
+mean_percent_x_error = []
+mean_percent_y_error = []
+for i in range(len(scatter_points_with_scale)):
+    scaled_points = scale_scatter_points(scatter_points_with_scale[i], 
+                                         x_axis_scale_final[i], 
+                                         y_axis_scale_final[i])
+    x_error, y_error = compute_scatter_mean_percent_error(
+        scatter_points_with_scale[i], scatter_images_final[i].scatter_points, 
+        scaled_points, scatter_images_final[i].plot_data_series)
+    
+    mean_percent_x_error.append(x_error)
+    mean_percent_y_error.append(y_error)
